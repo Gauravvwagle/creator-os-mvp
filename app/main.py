@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from .database import Base, engine, settings
 from .api.routes import router
+from .api.ai_routes import router as ai_router
 
 Base.metadata.create_all(bind=engine)
 
@@ -11,6 +12,7 @@ app = FastAPI(
 )
 
 app.include_router(router, prefix="/api/v1", tags=["CreatorOS"])
+app.include_router(ai_router, prefix="/api/v1", tags=["AI"])
 
 
 @app.get("/health", tags=["System"])
