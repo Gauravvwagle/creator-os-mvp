@@ -66,3 +66,46 @@ class EvaluationOut(BaseModel):
     breakdown: dict[str, dict]
     contains_demo_evidence: bool
     interpretation: str
+
+
+
+class CandidateCreate(BaseModel):
+    criterion: Criterion
+    proposed_score: int = Field(ge=1, le=10)
+    confidence: Literal["low", "medium", "high"] = "low"
+    claim: str = Field(min_length=10, max_length=2000)
+    source_url: HttpUrl
+    source_title: str = Field(default="", max_length=300)
+    publisher: str | None = Field(default=None, max_length=200)
+    source_published: str | None = Field(default=None, max_length=100)
+    source_excerpt: str = Field(min_length=10, max_length=3000)
+    origin: Literal["human_entered", "ai_suggested"] = "human_entered"
+
+
+class CandidateOut(BaseModel):
+    id: int
+    niche_id: int
+    criterion: str
+    proposed_score: int
+    confidence: str
+    claim: str
+    source_url: str
+    source_title: str
+    publisher: str | None
+    source_published: str | None
+    source_excerpt: str
+    origin: str
+    status: str
+    reviewer_note: str | None
+    reviewed_at: datetime | None
+    evidence_id: int | None
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CandidateApprove(BaseModel):
+    reviewer_note: str = Field(default="", max_length=2000)
+
+
+class CandidateReject(BaseModel):
+    reviewer_note: str = Field(min_length=3, max_length=2000)
