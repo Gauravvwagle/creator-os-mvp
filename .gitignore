@@ -10,3 +10,5 @@ creatoros.db
 .DS_Store
 .env.*
 !.env.example
+
+*.db
