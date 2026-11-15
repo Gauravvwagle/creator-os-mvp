@@ -4,7 +4,7 @@ from .api.routes import router
 from .api.ai_routes import router as ai_router
 from .api.research_routes import router as research_router
 from .api.candidate_routes import router as candidate_router
-
+from .api.verify_routes import router as verify_router 
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
@@ -17,6 +17,7 @@ app.include_router(router, prefix="/api/v1", tags=["CreatorOS"])
 app.include_router(ai_router, prefix="/api/v1", tags=["AI"])
 app.include_router(research_router, prefix="/api/v1", tags=["Research"])
 app.include_router(candidate_router, prefix="/api/v1", tags=["Review"])
+app.include_router(verify_router, prefix="/api/v1", tags=["Research"])
 
 @app.get("/health", tags=["System"])
 def health():
