@@ -64,4 +64,10 @@ class EvidenceCandidate(Base):
     reviewer_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     evidence_id: Mapped[int | None] = mapped_column(ForeignKey("evidence.id"), nullable=True)
+    # Result of the last machine check of source_excerpt against source_url:
+    # not_checked | found | not_found | fetch_failed. A text match only; humans still decide.
+    quote_check_status: Mapped[str] = mapped_column(
+        String(20), default="not_checked", server_default="not_checked"
+    )
+    quote_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
