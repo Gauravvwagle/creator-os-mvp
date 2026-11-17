@@ -1,15 +1,3 @@
-import pytest
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
-
-from app.database import Base, get_db
-from app import models  # noqa: F401  (registers tables on Base)
-from app.api.routes import router
-from app.api.candidate_routes import router as candidate_router
-
 CRITERIA = [
     "audience_demand",
     "monetization_potential",
@@ -21,30 +9,7 @@ CRITERIA = [
 ]
 
 
-@pytest.fixture()
-def client():
-    engine = create_engine(
-        "sqlite://",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    Base.metadata.create_all(bind=engine)
-    TestingSession = sessionmaker(bind=engine, autoflush=False, autocommit=False)
-
-    def override_get_db():
-        db = TestingSession()
-        try:
-            yield db
-        finally:
-            db.close()
-
-    app = FastAPI()
-    app.include_router(router, prefix="/api/v1")
-    app.include_router(candidate_router, prefix="/api/v1")
-    app.dependency_overrides[get_db] = override_get_db
-
-    with TestClient(app) as c:
-        yield c
+# The `client` fixture now lives in tests/conftest.py and is shared by all test files.
 
 
 def make_niche(client, name="Test Niche"):

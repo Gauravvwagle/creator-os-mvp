@@ -1,23 +1,12 @@
-from typing import Literal
-
 import httpx
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from ..agents.research_planner import build_planning_prompt
 from ..ai.ollama_client import MODEL_NAME, generate_response
+from ..schemas import Criterion  # single definition of the seven criteria
 
 router = APIRouter()
-
-Criterion = Literal[
-    "audience_demand",
-    "monetization_potential",
-    "affiliate_opportunities",
-    "competition_accessibility",
-    "production_feasibility",
-    "long_term_demand",
-    "creator_capability",
-]
 
 
 class ResearchPlanRequest(BaseModel):
