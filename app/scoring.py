@@ -1,5 +1,3 @@
-from collections import defaultdict
-
 WEIGHTS = {
     "audience_demand": 20,
     "monetization_potential": 20,

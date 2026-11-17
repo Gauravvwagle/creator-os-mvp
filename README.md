@@ -4,10 +4,13 @@ A local-first niche research and scoring backend for a YouTube + Instagram creat
 
 ## What this MVP does
 
-- Create and list niche candidates.
+- Create and list niches.
 - Store evidence against seven scoring criteria.
 - Calculate a transparent weighted score (1–10).
-- Rank niches and return a research report.
+- Rank niches and return a research report. Niches containing demo evidence are always listed after niches with real evidence.
+- Hold proposed evidence as **candidates** that a human must approve or reject. Only approved candidates become evidence.
+- Draft research plans with a local Ollama model (`qwen2.5:1.5b`). AI output is labelled `ai_draft` and is never saved or scored.
+- Check that a quoted excerpt actually appears on a web page (`/research/verify-quote`).
 - Expose an interactive API at `/docs`.
 - Use SQLite locally; no paid API or cloud service is required.
 
@@ -19,6 +22,7 @@ A local-first niche research and scoring backend for a YouTube + Instagram creat
 - Python 3.12 recommended
 - VS Code
 - PowerShell terminal
+- [Ollama](https://ollama.com) with the `qwen2.5:1.5b` model pulled (only needed for the AI endpoints; everything else works without it)
 
 ## 1. Create and activate a virtual environment
 
@@ -68,7 +72,7 @@ Keep the terminal running while using the API.
 
 ## 5. Add a niche
 
-In `/docs`, open `POST /niches`, click **Try it out**, and submit:
+In `/docs`, open `POST /api/v1/niches`, click **Try it out**, and submit:
 
 ```json
 {
@@ -84,7 +88,7 @@ Copy the returned niche `id`.
 
 ## 6. Add evidence and scores
 
-Open `POST /niches/{niche_id}/evidence`. Add one evidence record per criterion. Allowed criteria and weights:
+Open `POST /api/v1/niches/{niche_id}/evidence`. Add one evidence record per criterion. (For real research, prefer the candidate workflow described below, which requires a source and a human decision.) Allowed criteria and weights:
 
 | Criterion | Weight |
 |---|---:|
@@ -111,21 +115,41 @@ Example:
 
 Replace the example observation and URL with real research. Do not score a criterion without recording the reason and source. `is_demo` should be `false` for actual research.
 
-Then call `POST /niches/{niche_id}/evaluate`.
+Then call `POST /api/v1/niches/{niche_id}/evaluate`.
 
 ## 7. View rankings
 
-Call `GET /reports/rankings`. Niches with incomplete criteria are returned as `incomplete` and are not ranked as if they had a complete score.
+Call `GET /api/v1/reports/rankings`. Niches with incomplete criteria are returned as `incomplete` and are not ranked as if they had a complete score. Niches that contain demo evidence appear after all niches with real evidence, whatever their score.
+
+## 8. Review proposed evidence (human approval)
+
+1. `POST /api/v1/niches/{niche_id}/candidates` — propose a claim with a source URL and a source excerpt. It starts as `pending` and does not affect any score.
+2. Optional: `POST /api/v1/research/verify-quote` with the URL and excerpt to check the excerpt really appears on the page. This is a text match only; a human must still judge whether it supports the claim. Pages that build their text with JavaScript will not match.
+3. `GET /api/v1/candidates` — list candidates (default `pending`; use `?status=approved` or `?status=rejected`).
+4. `POST /api/v1/candidates/{id}/approve` creates real evidence and resets the niche's score. `POST /api/v1/candidates/{id}/reject` requires a reviewer note. Decisions are final (a second decision returns 409).
+
+## 9. Local AI (optional)
+
+Start Ollama, then call `POST /api/v1/research/plan` with a niche name and a criterion to get a research **plan** (questions and source types, not facts). `POST /api/v1/ai/generate` sends a free prompt. Both return drafts that are not evidence and are not saved.
 
 ## API endpoints
+
+All endpoints below use the `/api/v1` prefix, except `/health`.
 
 - `GET /health` — health check
 - `POST /niches` — create a niche
 - `GET /niches` — list niches
 - `GET /niches/{niche_id}` — niche details and evidence
-- `POST /niches/{niche_id}/evidence` — add evidence
+- `POST /niches/{niche_id}/evidence` — add evidence directly
 - `POST /niches/{niche_id}/evaluate` — calculate score
 - `GET /reports/rankings` — ranked report
+- `POST /niches/{niche_id}/candidates` — propose evidence for review
+- `GET /candidates` — list candidates by status
+- `POST /candidates/{candidate_id}/approve` — approve and create evidence
+- `POST /candidates/{candidate_id}/reject` — reject with a note
+- `POST /research/plan` — AI-drafted research plan (needs Ollama)
+- `POST /research/verify-quote` — check an excerpt exists on a page
+- `POST /ai/generate` — free prompt to the local model (needs Ollama)
 
 ## Scoring model
 
@@ -142,21 +166,41 @@ The score is a decision-support signal, not a prediction of income. Revenue depe
 ```text
 creator-os-mvp/
 ├── app/
-│   ├── api/routes.py
+│   ├── api/
+│   │   ├── routes.py            niches, evidence, evaluation, rankings
+│   │   ├── candidate_routes.py  propose / approve / reject evidence
+│   │   ├── research_routes.py   AI research plans
+│   │   ├── verify_routes.py     quote verification
+│   │   └── ai_routes.py         free prompt to the local model
+│   ├── agents/research_planner.py   criteria descriptions and plan prompt
+│   ├── ai/ollama_client.py          talks to the local Ollama server
+│   ├── research/
+│   │   ├── fetcher.py               downloads one page safely
+│   │   └── verify.py                HTML to text, quote matching
 │   ├── models.py
-│   ├── schemas.py
-│   ├── scoring.py
+│   ├── schemas.py                   the single definition of the 7 criteria
+│   ├── scoring.py                   weights and the score calculation
 │   ├── database.py
 │   └── main.py
-├── prompts/
+├── prompts/                     role descriptions for future agents (not yet loaded by any code)
 │   ├── niche_research_agent.md
 │   └── evidence_review_agent.md
 ├── tests/
-│   └── test_scoring.py
+│   ├── conftest.py              shared in-memory test database
+│   ├── test_scoring.py
+│   ├── test_candidates.py
+│   ├── test_rankings.py
+│   ├── test_verify.py
+│   └── test_consistency.py      fails if the criteria lists drift apart
+├── test_ollama.py               manual check that Ollama is reachable
 ├── .env.example
 ├── requirements.txt
 └── README.md
 ```
+
+Run the tests with `pytest -v`.
+
+If you add or rename a scoring criterion, change `WEIGHTS` in `scoring.py`, `Criterion` in `schemas.py` and `CRITERIA_GUIDE` in `agents/research_planner.py`. `tests/test_consistency.py` fails if they disagree.
 
 ## Troubleshooting
 
@@ -172,9 +216,12 @@ creator-os-mvp/
 
 ## Next milestones
 
-1. Add a research-source collector with source/date capture.
-2. Add a local Ollama model for research synthesis (not as a source of facts).
-3. Add LangGraph orchestration and human approval checkpoints.
-4. Add a React dashboard.
-5. Add content planning, production and publishing modules.
-6. Add YouTube/Instagram integrations after checking current API permissions and platform rules.
+Done: candidate review workflow, local Ollama research plans, single-page quote verification.
+
+1. Record the quote-verification result on each candidate, and decide whether a failed check blocks approval.
+2. Restrict direct evidence entry so real evidence must pass through the candidate gate.
+3. Decide how `confidence` should affect the score (it is stored but not used today).
+4. Add an `ai_suggested` candidate flow, with automatic quote checks before human review.
+5. Add a dashboard.
+6. Add content planning, production and publishing modules.
+7. Add YouTube/Instagram integrations after checking current API permissions and platform rules.
