@@ -228,6 +228,17 @@ If you add or rename a scoring criterion, change `WEIGHTS` in `scoring.py`, `Cri
 
 **Database schema changed:** Stop the server, back up `creatoros.db`, then delete it only if you are happy to lose local test data. For a serious deployment, add Alembic migrations rather than deleting the database.
 
+## New in this version (open `/dashboard`)
+
+Three tabs: **Research**, **Content**, **Publishing & results**.
+
+- Suggest evidence from a page (AI): needs Ollama running. Drafts only; a human approves.
+- Ideas and scripts: generated only from approved, real evidence. Approve or reject each.
+- Publishing queue: approve a post, copy its package, post it yourself, record the link. CreatorOS never uploads for you.
+- Record results (views, likes, etc.) and money (revenue and costs), then read the Outcomes table.
+
+Endpoints are listed in the interactive docs at `/docs`. See `ROADMAP.md` for what is done and what needs your decisions.
+
 ## Next milestones
 
 See [ROADMAP.md](ROADMAP.md) for what is done, what is next, and what needs a decision from you.
