@@ -21,7 +21,14 @@ async def fetch_page_text(url: str) -> dict:
     except httpx.TimeoutException as exc:
         raise FetchError("The page took too long to respond.") from exc
     except httpx.HTTPStatusError as exc:
-        raise FetchError(f"The site returned HTTP {exc.response.status_code}.") from exc
+        code = exc.response.status_code
+        if code in (401, 403, 429):
+            raise FetchError(
+                f"The site returned HTTP {code}: it does not allow automated readers. "
+                "Try a different page, or open the page yourself and use 'Propose evidence' "
+                "to paste the quote."
+            ) from exc
+        raise FetchError(f"The site returned HTTP {code}.") from exc
     except httpx.HTTPError as exc:
         raise FetchError("Could not reach the page.") from exc
 

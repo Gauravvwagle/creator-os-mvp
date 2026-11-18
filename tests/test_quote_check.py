@@ -125,3 +125,19 @@ def test_approving_an_unchecked_candidate_says_so(client):
     cand = make_candidate(client, niche_id)
     client.post(f"/api/v1/candidates/{cand['id']}/approve", json={})
     assert "NOT machine-checked" in evidence_text(client, niche_id)
+
+
+def test_blocked_site_gives_a_helpful_message(monkeypatch):
+    import asyncio
+    import httpx
+    from app.research import fetcher
+
+    transport = httpx.MockTransport(lambda request: httpx.Response(403))
+    real = httpx.AsyncClient
+    monkeypatch.setattr(fetcher.httpx, "AsyncClient", lambda **kw: real(transport=transport, **kw))
+    try:
+        asyncio.run(fetcher.fetch_page_text("https://example.com/x"))
+    except fetcher.FetchError as exc:
+        assert "403" in str(exc) and "Propose evidence" in str(exc)
+    else:
+        raise AssertionError("expected FetchError")
