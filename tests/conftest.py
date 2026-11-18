@@ -9,6 +9,7 @@ from app.database import Base, get_db
 from app import models  # noqa: F401  (registers tables on Base)
 from app.api.routes import router
 from app.api.candidate_routes import router as candidate_router
+from app.api.suggest_routes import router as suggest_router
 
 
 @pytest.fixture()
@@ -32,6 +33,7 @@ def client():
     app = FastAPI()
     app.include_router(router, prefix="/api/v1")
     app.include_router(candidate_router, prefix="/api/v1")
+    app.include_router(suggest_router, prefix="/api/v1")
     app.dependency_overrides[get_db] = override_get_db
 
     with TestClient(app) as c:
