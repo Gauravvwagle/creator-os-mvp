@@ -1,4 +1,5 @@
-from datetime import datetime
+from datetime import date, datetime
+from decimal import Decimal
 from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
@@ -163,3 +164,91 @@ class ScriptOut(BaseModel):
     reviewed_at: datetime | None
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
+
+
+# ---------- publishing queue, performance, money ----------
+
+Platform = Literal["youtube", "instagram", "tiktok", "other"]
+MoneySource = Literal["adsense", "affiliate", "sponsorship", "product", "tool", "ads_spend", "other"]
+
+
+class PostCreate(BaseModel):
+    platform: Platform
+    title: str = Field(min_length=3, max_length=200)
+    description: str = Field(default="", max_length=5000)
+    tags: list[str] = Field(default_factory=list, max_length=30)
+    idea_id: int | None = None
+    script_id: int | None = None
+
+
+class PostOut(BaseModel):
+    id: int
+    niche_id: int
+    idea_id: int | None
+    script_id: int | None
+    platform: str
+    title: str
+    description: str
+    tags: list[str]
+    status: str
+    approved_at: datetime | None
+    url: str | None
+    published_on: date | None
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PostPublished(BaseModel):
+    url: HttpUrl
+    published_on: date | None = None  # defaults to today
+
+
+class PostPackage(BaseModel):
+    post_id: int
+    platform: str
+    text: str
+    reminders: list[str]
+
+
+class PerformanceIn(BaseModel):
+    captured_on: date | None = None  # defaults to today
+    views: int = Field(ge=0)
+    likes: int = Field(default=0, ge=0)
+    comments: int = Field(default=0, ge=0)
+    watch_time_minutes: float = Field(default=0, ge=0)
+    followers_gained: int = Field(default=0, ge=0)
+
+
+class PerformanceOut(BaseModel):
+    id: int
+    post_id: int
+    captured_on: date
+    views: int
+    likes: int
+    comments: int
+    watch_time_minutes: float
+    followers_gained: int
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MoneyIn(BaseModel):
+    kind: Literal["revenue", "cost"]
+    source: MoneySource
+    amount: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
+    currency: str = Field(min_length=3, max_length=3, pattern="^[A-Za-z]{3}$")
+    occurred_on: date | None = None  # defaults to today
+    post_id: int | None = None
+    note: str = Field(default="", max_length=1000)
+
+
+class MoneyOut(BaseModel):
+    id: int
+    niche_id: int
+    post_id: int | None
+    kind: str
+    source: str
+    amount: str
+    amount_cents: int
+    currency: str
+    occurred_on: date
+    note: str
