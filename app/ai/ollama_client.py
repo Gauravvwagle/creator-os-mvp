@@ -5,10 +5,13 @@ OLLAMA_URL = "http://localhost:11434"
 MODEL_NAME = "qwen2.5:1.5b"
 
 
-async def generate_response(prompt: str) -> str:
+async def generate_response(prompt: str, json_mode: bool = False) -> str:
     """
     Send a prompt to the locally running Ollama model
     and return its generated response.
+
+    With json_mode=True Ollama is asked to return valid JSON. The caller must still
+    validate the content: valid JSON is not the same as a correct answer.
     """
 
     payload = {
@@ -16,6 +19,8 @@ async def generate_response(prompt: str) -> str:
         "prompt": prompt,
         "stream": False,
     }
+    if json_mode:
+        payload["format"] = "json"
 
     try:
         async with httpx.AsyncClient(timeout=180.0) as client:

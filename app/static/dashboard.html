@@ -1,0 +1,677 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CreatorOS Dashboard</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1c2430; --muted: #5b6676; --line: #dde2ea;
+    --accent: #2457d6; --good: #1d7a46; --warn: #a15c00; --bad: #b3261e;
+    --good-bg: #e4f4ea; --warn-bg: #fdf0d9; --bad-bg: #fbe5e3; --neutral-bg: #e9edf3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12161c; --card: #1a2029; --text: #e6e9ee; --muted: #9aa5b5; --line: #2c3544;
+      --accent: #7ea2ff; --good: #62c58b; --warn: #e3a64a; --bad: #f08c85;
+      --good-bg: #173325; --warn-bg: #3a2c12; --bad-bg: #3d1d1b; --neutral-bg: #252d3a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { padding: 20px 16px 8px; max-width: 1100px; margin: 0 auto; }
+  h1 { margin: 0; font-size: 22px; }
+  .sub { color: var(--muted); margin: 4px 0 0; font-size: 13px; }
+  main { max-width: 1100px; margin: 0 auto; padding: 8px 16px 48px; display: grid; gap: 16px;
+         grid-template-columns: minmax(0, 1fr); }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px;
+            min-width: 0; overflow-x: auto; }
+  h2 { margin: 0 0 12px; font-size: 17px; }
+  h3 { margin: 14px 0 6px; font-size: 14px; color: var(--muted); font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .muted { color: var(--muted); }
+  .badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; background: var(--neutral-bg); }
+  .badge.good { background: var(--good-bg); color: var(--good); }
+  .badge.warn { background: var(--warn-bg); color: var(--warn); }
+  .badge.bad { background: var(--bad-bg); color: var(--bad); }
+  button { font: inherit; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--line);
+           background: var(--card); color: var(--text); cursor: pointer; }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button:disabled { opacity: .55; cursor: wait; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  form { display: grid; gap: 10px; }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 10px; }
+  label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+  input, select, textarea { font: inherit; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px;
+                            background: var(--bg); color: var(--text); width: 100%; }
+  textarea { min-height: 70px; resize: vertical; }
+  .card { border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: grid; gap: 8px; }
+  .card + .card { margin-top: 10px; }
+  blockquote { margin: 0; padding: 6px 10px; border-left: 3px solid var(--line); color: var(--muted); font-size: 14px; }
+  #status { position: sticky; top: 0; z-index: 5; margin: 0 auto; max-width: 1100px; padding: 0 16px; }
+  #status div { margin-top: 8px; padding: 8px 12px; border-radius: 8px; font-size: 14px; }
+  #status .ok { background: var(--good-bg); color: var(--good); border: 1px solid var(--good); }
+  #status .err { background: var(--bad-bg); color: var(--bad); border: 1px solid var(--bad); }
+  a { color: var(--accent); }
+  .empty { color: var(--muted); padding: 8px 0; }
+  [hidden] { display: none !important; }
+  nav#tabs { max-width: 1100px; margin: 8px auto 0; padding: 0 16px; display: flex; gap: 8px; flex-wrap: wrap; }
+  nav#tabs button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  pre.script { white-space: pre-wrap; margin: 8px 0 0; font: inherit; color: var(--text); }
+  textarea.package { min-height: 220px; font-family: ui-monospace, Consolas, monospace; font-size: 13px; }
+  ul.tight { margin: 4px 0; padding-left: 20px; color: var(--muted); font-size: 14px; }
+  .box-warn { background: var(--warn-bg); color: var(--warn); border-radius: 8px; padding: 6px 10px; font-size: 14px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>CreatorOS</h1>
+  <p class="sub">Local-first niche research. Scores are decision support, not revenue forecasts, and only reviewed evidence counts.</p>
+</header>
+<div id="status" role="status" aria-live="polite"></div>
+<nav id="tabs" aria-label="Sections">
+  <button type="button" data-tab="research">Research</button>
+  <button type="button" data-tab="content">Content</button>
+  <button type="button" data-tab="publish">Publishing &amp; results</button>
+</nav>
+
+<main>
+  <section data-tab="research">
+    <h2>Rankings</h2>
+    <div id="rankings"></div>
+  </section>
+
+  <section data-tab="research">
+    <h2>Candidates waiting for review</h2>
+    <p class="sub">Verify checks that the excerpt appears on the page. It is a text match only: you still decide whether it supports the claim. Approve and reject are final.</p>
+    <div id="candidates"></div>
+  </section>
+
+  <section data-tab="research">
+    <h2>Niches</h2>
+    <div id="niches"></div>
+    <h3>Add a niche</h3>
+    <form id="niche-form">
+      <div class="grid2">
+        <label>Name <input name="name" required minlength="2" maxlength="160"></label>
+        <label>Target audience <input name="target_audience"></label>
+      </div>
+      <label>Description <input name="description"></label>
+      <div class="row"><button class="primary" type="submit">Add niche</button></div>
+    </form>
+  </section>
+
+  <section data-tab="research">
+    <h2>Propose evidence</h2>
+    <p class="sub">Every claim needs a source URL and an excerpt copied from that page. It stays pending until you approve it.</p>
+    <form id="candidate-form">
+      <div class="grid2">
+        <label>Niche <select name="niche_id" id="cand-niche" required></select></label>
+        <label>Criterion <select name="criterion" id="cand-criterion" required></select></label>
+        <label>Score (1-10) <input name="proposed_score" type="number" min="1" max="10" required></label>
+        <label>Confidence
+          <select name="confidence"><option>low</option><option>medium</option><option>high</option></select>
+        </label>
+      </div>
+      <label>Claim (what the source shows) <textarea name="claim" required minlength="10" maxlength="2000"></textarea></label>
+      <div class="grid2">
+        <label>Source URL <input name="source_url" type="url" required placeholder="https://"></label>
+        <label>Source title <input name="source_title" maxlength="300"></label>
+      </div>
+      <label>Excerpt copied from the page <textarea name="source_excerpt" required minlength="10" maxlength="3000"></textarea></label>
+      <div class="row"><button class="primary" type="submit">Add candidate</button></div>
+    </form>
+  </section>
+
+  <section data-tab="research">
+    <h2>Suggest evidence from a page (AI)</h2>
+    <p class="sub">The local model reads one page and files drafts for you to review. The excerpt is copied word for word from the page; the claim and score are model drafts and may be wrong. Nothing is approved automatically. Needs Ollama running. All seven criteria can take several minutes.</p>
+    <form id="suggest-form">
+      <div class="grid2">
+        <label>Niche <select name="niche_id" id="sug-niche" required></select></label>
+        <label>Criterion <select name="criterion" id="sug-criterion"></select></label>
+      </div>
+      <label>Page URL <input name="url" type="url" required placeholder="https://"></label>
+      <div class="row"><button class="primary" type="submit">Suggest candidates</button></div>
+    </form>
+  </section>
+
+  <section data-tab="content">
+    <h2>Ideas</h2>
+    <p class="sub">Ideas are generated only from approved, real evidence (demo data is ignored). Everything the model writes is a draft until you approve it.</p>
+    <div class="row">
+      <label>Niche <select id="idea-niche"></select></label>
+      <button class="primary" id="gen-ideas" type="button">Generate ideas (AI)</button>
+    </div>
+    <div id="ideas"></div>
+  </section>
+
+  <section data-tab="publish">
+    <h2>Publishing queue</h2>
+    <p class="sub">CreatorOS never posts for you. Approve a post, copy its package, post it yourself, then record the link here.</p>
+    <div id="posts"></div>
+    <div id="package"></div>
+  </section>
+
+  <section data-tab="publish">
+    <h2>Record results</h2>
+    <p class="sub">Enter cumulative totals exactly as the platform shows them today. Entering the same day again replaces it.</p>
+    <form id="perf-form">
+      <div class="grid2">
+        <label>Published post <select name="post_id" id="perf-post" required></select></label>
+        <label>Date (blank = today) <input name="captured_on" type="date"></label>
+        <label>Views <input name="views" type="number" min="0" required></label>
+        <label>Likes <input name="likes" type="number" min="0"></label>
+        <label>Comments <input name="comments" type="number" min="0"></label>
+        <label>Watch time (minutes) <input name="watch_time_minutes" type="number" min="0" step="any"></label>
+        <label>Followers gained <input name="followers_gained" type="number" min="0"></label>
+      </div>
+      <div class="row"><button class="primary" type="submit">Save results</button></div>
+    </form>
+  </section>
+
+  <section data-tab="publish">
+    <h2>Money</h2>
+    <p class="sub">Amounts are stored in whole cents and totals are kept per currency, with no conversion.</p>
+    <form id="money-form">
+      <div class="grid2">
+        <label>Niche <select name="niche_id" id="money-niche" required></select></label>
+        <label>Type
+          <select name="kind" id="money-kind"><option value="revenue">Revenue</option><option value="cost">Cost</option></select>
+        </label>
+        <label>Source <select name="source" id="money-source"></select></label>
+        <label>Amount <input name="amount" type="number" min="0.01" step="0.01" required></label>
+        <label>Currency (3 letters) <input name="currency" value="USD" maxlength="3" minlength="3" required></label>
+        <label>Linked post (optional) <select name="post_id" id="money-post"></select></label>
+      </div>
+      <label>Note <input name="note" maxlength="1000"></label>
+      <div class="row"><button class="primary" type="submit">Add entry</button></div>
+    </form>
+  </section>
+
+  <section data-tab="publish">
+    <h2>Outcomes</h2>
+    <p class="sub">How each niche's research score compares with what happened after publishing. Treat small samples as hints, not proof.</p>
+    <div id="outcomes"></div>
+  </section>
+</main>
+
+<script>
+"use strict";
+
+const state = { criteria: [], niches: [], rankings: { ranked: [], incomplete: [] }, candidates: [],
+                ideas: [], scripts: [], posts: [], outcomes: [] };
+
+const CHECK_LABELS = {
+  not_checked: ["Not checked", ""],
+  found: ["Excerpt found on page", "good"],
+  not_found: ["Excerpt NOT found", "bad"],
+  fetch_failed: ["Page could not be fetched", "warn"],
+};
+
+/* Build DOM nodes from plain text only, so typed content cannot inject markup. */
+function h(tag, props, ...kids) {
+  const el = document.createElement(tag);
+  for (const [key, value] of Object.entries(props || {})) {
+    if (key === "class") el.className = value;
+    else if (key.startsWith("on")) el.addEventListener(key.slice(2), value);
+    else if (value !== null && value !== undefined && value !== false) el.setAttribute(key, value);
+  }
+  for (const kid of kids.flat()) {
+    if (kid === null || kid === undefined || kid === false) continue;
+    el.append(kid);
+  }
+  return el;
+}
+
+function describeError(data) {
+  if (!data) return "";
+  if (typeof data.detail === "string") return data.detail;
+  if (Array.isArray(data.detail)) {
+    return data.detail.map((d) => (d.loc || []).slice(1).join(".") + ": " + d.msg).join("; ");
+  }
+  return "";
+}
+
+async function api(method, path, body) {
+  const response = await fetch("/api/v1" + path, {
+    method,
+    headers: body ? { "Content-Type": "application/json" } : {},
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  let data = null;
+  try { data = await response.json(); } catch (_) { /* no body */ }
+  if (!response.ok) throw new Error(describeError(data) || "Request failed (HTTP " + response.status + ")");
+  return data;
+}
+
+let statusTimer = null;
+function notify(message, isError) {
+  const box = document.getElementById("status");
+  box.replaceChildren(h("div", { class: isError ? "err" : "ok" }, message));
+  clearTimeout(statusTimer);
+  statusTimer = setTimeout(() => box.replaceChildren(), isError ? 12000 : 5000);
+}
+
+async function run(button, label, action, successMessage) {
+  const original = button.textContent;
+  button.disabled = true;
+  button.textContent = label;
+  try {
+    const result = await action();
+    await load();
+    if (successMessage) notify(typeof successMessage === "function" ? successMessage(result) : successMessage, false);
+  } catch (error) {
+    notify(error.message, true);
+  } finally {
+    button.disabled = false;
+    button.textContent = original;
+  }
+}
+
+function niceName(id) {
+  const niche = state.niches.find((n) => n.id === id);
+  return niche ? niche.name : "Niche #" + id;
+}
+
+function renderRankings() {
+  const { ranked, incomplete } = state.rankings;
+  const root = document.getElementById("rankings");
+  const parts = [];
+  if (!ranked.length) {
+    parts.push(h("p", { class: "empty" }, "No niche has evidence for all seven criteria yet."));
+  } else {
+    parts.push(h("table", {},
+      h("thead", {}, h("tr", {}, h("th", {}, "#"), h("th", {}, "Niche"), h("th", { class: "num" }, "Score"), h("th", {}, "Reading"))),
+      h("tbody", {}, ranked.map((row, i) => h("tr", {},
+        h("td", {}, String(i + 1)),
+        h("td", {}, row.niche_name, " ", row.contains_demo_evidence ? h("span", { class: "badge warn" }, "demo data") : null),
+        h("td", { class: "num" }, row.weighted_score.toFixed(2)),
+        h("td", { class: "muted" }, row.interpretation))))));
+  }
+  if (incomplete.length) {
+    parts.push(h("h3", {}, "Not ranked yet (missing evidence)"));
+    parts.push(h("table", {}, h("tbody", {}, incomplete.map((row) => h("tr", {},
+      h("td", {}, row.niche_name),
+      h("td", { class: "muted" }, row.criteria_missing.length + " of 7 criteria missing"))))));
+  }
+  root.replaceChildren(...parts);
+}
+
+function renderNiches() {
+  const root = document.getElementById("niches");
+  if (!state.niches.length) {
+    root.replaceChildren(h("p", { class: "empty" }, "No niches yet. Add one below."));
+    return;
+  }
+  root.replaceChildren(h("table", {},
+    h("thead", {}, h("tr", {}, h("th", {}, "Niche"), h("th", {}, "Status"), h("th", { class: "num" }, "Saved score"), h("th", {}, ""))),
+    h("tbody", {}, state.niches.map((niche) => {
+      const button = h("button", {}, "Evaluate");
+      button.addEventListener("click", () => run(button, "Evaluating…",
+        () => api("POST", "/niches/" + niche.id + "/evaluate"),
+        (r) => r.status === "evaluated"
+          ? niche.name + ": " + r.weighted_score.toFixed(2) + ". " + r.interpretation
+          : niche.name + ": " + r.criteria_missing.length + " criteria still need evidence."));
+      return h("tr", {},
+        h("td", {}, niche.name, h("div", { class: "muted" }, niche.target_audience || "")),
+        h("td", {}, h("span", { class: "badge" }, niche.score_status)),
+        h("td", { class: "num" }, niche.latest_score === null ? "-" : niche.latest_score.toFixed(2)),
+        h("td", {}, button));
+    }))));
+}
+
+function safeHttpUrl(value) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.href : null;
+  } catch (_) { return null; }
+}
+
+function renderCandidates() {
+  const root = document.getElementById("candidates");
+  if (!state.candidates.length) {
+    root.replaceChildren(h("p", { class: "empty" }, "Nothing is waiting for review."));
+    return;
+  }
+  root.replaceChildren(...state.candidates.map((c) => {
+    const [checkText, checkClass] = CHECK_LABELS[c.quote_check_status] || CHECK_LABELS.not_checked;
+    const href = safeHttpUrl(c.source_url);
+
+    const verify = h("button", {}, "Verify excerpt");
+    verify.addEventListener("click", () => run(verify, "Checking page…",
+      () => api("POST", "/candidates/" + c.id + "/verify"),
+      (r) => CHECK_LABELS[r.quote_check_status][0] + "."));
+
+    const approve = h("button", { class: "primary" }, "Approve");
+    approve.addEventListener("click", () => {
+      const warning = c.quote_check_status === "found" ? "" :
+        "\n\nNote: the excerpt has not been confirmed on the page (" + checkText.toLowerCase() + "). This will be recorded in the evidence.";
+      if (!confirm("Approve this evidence? Decisions are final." + warning)) return;
+      run(approve, "Approving…", () => api("POST", "/candidates/" + c.id + "/approve", {}), "Approved. The niche score was reset; evaluate it again.");
+    });
+
+    const reject = h("button", {}, "Reject");
+    reject.addEventListener("click", () => {
+      const note = prompt("Why are you rejecting this? (required, at least 3 characters)");
+      if (note === null) return;
+      run(reject, "Rejecting…", () => api("POST", "/candidates/" + c.id + "/reject", { reviewer_note: note }), "Rejected.");
+    });
+
+    return h("div", { class: "card" },
+      h("div", { class: "row" },
+        h("strong", {}, niceName(c.niche_id)),
+        h("span", { class: "badge" }, c.criterion),
+        h("span", { class: "badge" }, "score " + c.proposed_score),
+        h("span", { class: "badge" }, c.confidence + " confidence"),
+        c.origin === "ai_suggested" ? h("span", { class: "badge warn" }, "AI suggested") : null,
+        h("span", { class: "badge " + checkClass }, checkText)),
+      h("div", {}, c.claim),
+      c.origin === "ai_suggested"
+        ? h("div", { class: "box-warn" }, "The excerpt was copied from the page. The claim and score are model drafts: check them against the excerpt before approving.")
+        : null,
+      h("blockquote", {}, c.source_excerpt),
+      h("div", { class: "muted" }, "Source: ",
+        href ? h("a", { href, target: "_blank", rel: "noopener noreferrer" }, c.source_title || href) : (c.source_title || c.source_url)),
+      h("div", { class: "row" }, verify, approve, reject));
+  }));
+}
+
+const SOURCES = { revenue: ["adsense", "affiliate", "sponsorship", "product", "other"], cost: ["tool", "ads_spend", "other"] };
+const PLATFORMS = ["youtube", "instagram", "tiktok", "other"];
+
+function setOptions(select, options) {
+  const keep = select.value;
+  select.replaceChildren(...options.map(([value, label]) => h("option", { value }, label)));
+  if (keep && options.some(([value]) => value === keep)) select.value = keep;
+}
+
+function fillSelects() {
+  const niches = state.niches.map((n) => [String(n.id), n.name]);
+  for (const id of ["cand-niche", "sug-niche", "idea-niche", "money-niche"]) setOptions(document.getElementById(id), niches);
+
+  const criteria = state.criteria.map((c) => [c.name, c.name + " (weight " + c.weight + ")"]);
+  setOptions(document.getElementById("cand-criterion"), criteria);
+  setOptions(document.getElementById("sug-criterion"), [["", "All seven criteria (slow)"], ...criteria]);
+
+  const published = state.posts.filter((p) => p.status === "published");
+  setOptions(document.getElementById("perf-post"), published.map((p) => [String(p.id), p.title + " (" + niceName(p.niche_id) + ")"]));
+  setOptions(document.getElementById("money-post"), [["", "None"], ...published.map((p) => [String(p.id), p.title])]);
+  fillMoneySources();
+}
+
+function fillMoneySources() {
+  const kind = document.getElementById("money-kind").value;
+  setOptions(document.getElementById("money-source"), SOURCES[kind].map((x) => [x, x]));
+}
+
+/* ---------- small shared helpers ---------- */
+
+function actionButton(label, busy, action, success, primary) {
+  const button = h("button", { class: primary ? "primary" : "" }, label);
+  button.addEventListener("click", () => run(button, busy, action, success));
+  return button;
+}
+
+function confirmButton(label, busy, question, action, success, primary) {
+  const button = h("button", { class: primary ? "primary" : "" }, label);
+  button.addEventListener("click", () => {
+    if (!confirm(question)) return;
+    run(button, busy, action, success);
+  });
+  return button;
+}
+
+function rejectButton(path) {
+  const button = h("button", {}, "Reject");
+  button.addEventListener("click", () => {
+    const note = prompt("Why are you rejecting this? (required, at least 3 characters)");
+    if (note === null) return;
+    run(button, "Rejecting…", () => api("POST", path, { reviewer_note: note }), "Rejected.");
+  });
+  return button;
+}
+
+function statusBadge(status) {
+  const kind = { approved: "good", published: "good", ready: "good", draft: "warn", planned: "warn", rejected: "bad", cancelled: "bad" }[status] || "";
+  return h("span", { class: "badge " + kind }, status);
+}
+
+const num = (value) => (value === "" || value === undefined ? 0 : Number(value));
+
+/* ---------- content ---------- */
+
+function renderIdeas() {
+  const root = document.getElementById("ideas");
+  const ideas = state.ideas.filter((i) => i.status !== "rejected");
+  if (!ideas.length) {
+    root.replaceChildren(h("p", { class: "empty" }, "No ideas yet. Approve some real evidence first, then generate ideas."));
+    return;
+  }
+  root.replaceChildren(...ideas.map((idea) => {
+    const actions = [];
+    if (idea.status === "draft") {
+      actions.push(confirmButton("Approve", "Approving…", "Approve this idea? Decisions are final.",
+        () => api("POST", "/content/ideas/" + idea.id + "/approve"), "Idea approved.", true));
+      actions.push(rejectButton("/content/ideas/" + idea.id + "/reject"));
+    } else {
+      actions.push(actionButton("Write script (AI)", "Writing… this can take a minute", 
+        () => api("POST", "/content/ideas/" + idea.id + "/scripts/generate"), "Script drafted. Review it below.", true));
+    }
+    const scripts = state.scripts.filter((sc) => sc.idea_id === idea.id && sc.status !== "rejected");
+    return h("div", { class: "card" },
+      h("div", { class: "row" }, h("strong", {}, idea.title), statusBadge(idea.status),
+        h("span", { class: "badge" }, idea.origin === "ai_draft" ? "AI draft" : "written by you"), h("span", { class: "muted" }, niceName(idea.niche_id))),
+      idea.hook ? h("div", {}, idea.hook) : null,
+      idea.outline.length ? h("ul", { class: "tight" }, idea.outline.map((point) => h("li", {}, point))) : null,
+      h("div", { class: "row" }, actions),
+      scripts.map(scriptCard.bind(null, idea)));
+  }));
+}
+
+function scriptCard(idea, script) {
+  const actions = [];
+  if (script.status === "draft") {
+    actions.push(confirmButton("Approve script", "Approving…", "Approve this script? Decisions are final.",
+      () => api("POST", "/content/scripts/" + script.id + "/approve"), "Script approved.", true));
+    actions.push(rejectButton("/content/scripts/" + script.id + "/reject"));
+  } else {
+    const platform = h("select", {}, PLATFORMS.map((p) => h("option", { value: p }, p)));
+    const queue = h("button", {}, "Add to publishing queue");
+    queue.addEventListener("click", () => run(queue, "Adding…",
+      () => api("POST", "/niches/" + idea.niche_id + "/posts", { platform: platform.value, title: idea.title, script_id: script.id }),
+      "Added to the publishing queue (see the Publishing & results tab)."));
+    actions.push(platform, queue);
+  }
+  return h("div", { class: "card" },
+    h("div", { class: "row" }, h("strong", {}, "Script"), statusBadge(script.status),
+      h("span", { class: "badge" }, script.origin === "ai_draft" ? "AI draft" : "written by you")),
+    script.unverified_numbers.length
+      ? h("div", { class: "box-warn" }, "Check these numbers: they appear nowhere in your approved evidence: " + script.unverified_numbers.join(", "))
+      : null,
+    h("details", {}, h("summary", {}, "Read script"), h("pre", { class: "script" }, script.body)),
+    h("div", { class: "row" }, actions));
+}
+
+/* ---------- publishing, results, money ---------- */
+
+function renderPosts() {
+  const root = document.getElementById("posts");
+  const posts = state.posts.filter((p) => p.status !== "cancelled");
+  if (!posts.length) {
+    root.replaceChildren(h("p", { class: "empty" }, "Nothing queued. Approve a script on the Content tab and add it to the queue."));
+    return;
+  }
+  root.replaceChildren(...posts.map((post) => {
+    const actions = [];
+    if (post.status === "planned") {
+      actions.push(confirmButton("Approve for publishing", "Approving…", "Approve this post for publishing? You still post it yourself.",
+        () => api("POST", "/posts/" + post.id + "/approve"), "Approved. Open the package, then post it yourself.", true));
+    }
+    if (post.status === "ready" || post.status === "published") {
+      const open = h("button", {}, "Show package");
+      open.addEventListener("click", () => showPackage(post));
+      actions.push(open);
+    }
+    if (post.status === "ready") {
+      const published = h("button", { class: "primary" }, "I posted it: record link");
+      published.addEventListener("click", () => {
+        const url = prompt("Paste the link to the live post (https://…)");
+        if (!url) return;
+        run(published, "Saving…", () => api("POST", "/posts/" + post.id + "/published", { url }), "Recorded. You can now add results for it.");
+      });
+      actions.push(published);
+    }
+    if (post.status === "planned" || post.status === "ready") {
+      actions.push(confirmButton("Cancel", "Cancelling…", "Cancel this post?", () => api("POST", "/posts/" + post.id + "/cancel"), "Cancelled."));
+    }
+    const href = post.url ? safeHttpUrl(post.url) : null;
+    return h("div", { class: "card" },
+      h("div", { class: "row" }, h("strong", {}, post.title), statusBadge(post.status), h("span", { class: "badge" }, post.platform),
+        h("span", { class: "muted" }, niceName(post.niche_id))),
+      href ? h("div", { class: "muted" }, "Live at ", h("a", { href, target: "_blank", rel: "noopener noreferrer" }, href), post.published_on ? " (" + post.published_on + ")" : "") : null,
+      h("div", { class: "row" }, actions));
+  }));
+}
+
+async function showPackage(post) {
+  const root = document.getElementById("package");
+  try {
+    const pkg = await api("GET", "/posts/" + post.id + "/package");
+    const area = h("textarea", { class: "package", readonly: "readonly" }, pkg.text);
+    const copy = h("button", {}, "Copy to clipboard");
+    copy.addEventListener("click", async () => {
+      try { await navigator.clipboard.writeText(pkg.text); notify("Copied.", false); }
+      catch (_) { area.select(); notify("Select the text and copy it with Ctrl+C.", false); }
+    });
+    root.replaceChildren(h("div", { class: "card" },
+      h("strong", {}, "Package for: " + post.title),
+      h("ul", { class: "tight" }, pkg.reminders.map((r) => h("li", {}, r))),
+      area, h("div", { class: "row" }, copy)));
+    root.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  } catch (error) { notify(error.message, true); }
+}
+
+function renderOutcomes() {
+  const root = document.getElementById("outcomes");
+  if (!state.outcomes.length) {
+    root.replaceChildren(h("p", { class: "empty" }, "No niches yet."));
+    return;
+  }
+  const moneyText = (money) => {
+    const entries = Object.entries(money);
+    return entries.length ? entries.map(([cur, m]) => cur + ": net " + m.net + " (in " + m.revenue + ", out " + m.cost + ")").join("; ") : "-";
+  };
+  root.replaceChildren(h("div", { style: "overflow-x:auto" }, h("table", {},
+    h("thead", {}, h("tr", {}, h("th", {}, "Niche"), h("th", { class: "num" }, "Research score"), h("th", { class: "num" }, "Posts"),
+      h("th", { class: "num" }, "Views"), h("th", { class: "num" }, "Engagement"), h("th", {}, "Money"))),
+    h("tbody", {}, state.outcomes.flatMap((row) => [
+      h("tr", {},
+        h("td", {}, row.niche_name, row.contains_demo_evidence ? h("span", { class: "badge warn" }, "demo data") : null),
+        h("td", { class: "num" }, row.research_score === null ? "-" : row.research_score.toFixed(2)),
+        h("td", { class: "num" }, String(row.posts_published)),
+        h("td", { class: "num" }, row.posts_with_performance ? String(row.total_views) : "-"),
+        h("td", { class: "num" }, row.engagement_rate === null ? "-" : (row.engagement_rate * 100).toFixed(1) + "%"),
+        h("td", {}, moneyText(row.money))),
+      row.posts_published ? h("tr", {}, h("td", { colspan: "6", class: "muted" }, row.data_note)) : null,
+    ]))))); 
+}
+
+async function load() {
+  const [criteria, niches, rankings, candidates, ideas, scripts, posts, outcomes] = await Promise.all([
+    api("GET", "/criteria"), api("GET", "/niches"), api("GET", "/reports/rankings"), api("GET", "/candidates"),
+    api("GET", "/content/ideas"), api("GET", "/content/scripts"), api("GET", "/posts"), api("GET", "/reports/outcomes"),
+  ]);
+  Object.assign(state, { criteria, niches, rankings, candidates, ideas, scripts, posts, outcomes: outcomes.niches });
+  renderRankings(); renderNiches(); renderCandidates(); renderIdeas(); renderPosts(); renderOutcomes(); fillSelects();
+}
+
+function showTab(name) {
+  document.querySelectorAll("section[data-tab]").forEach((section) => { section.hidden = section.dataset.tab !== name; });
+  document.querySelectorAll("#tabs button").forEach((button) => button.classList.toggle("active", button.dataset.tab === name));
+  try { localStorage.setItem("creatoros-tab", name); } catch (_) { /* storage may be unavailable */ }
+}
+
+document.getElementById("niche-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const form = event.target;
+  const data = Object.fromEntries(new FormData(form));
+  run(form.querySelector("button"), "Adding…", async () => {
+    await api("POST", "/niches", { name: data.name, description: data.description, target_audience: data.target_audience });
+    form.reset();
+  }, "Niche added.");
+});
+
+document.getElementById("candidate-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const form = event.target;
+  const data = Object.fromEntries(new FormData(form));
+  const nicheId = data.niche_id;
+  run(form.querySelector("button"), "Adding…", async () => {
+    await api("POST", "/niches/" + nicheId + "/candidates", {
+      criterion: data.criterion,
+      proposed_score: Number(data.proposed_score),
+      confidence: data.confidence,
+      claim: data.claim,
+      source_url: data.source_url,
+      source_title: data.source_title,
+      source_excerpt: data.source_excerpt,
+    });
+    form.reset();
+    document.getElementById("cand-niche").value = nicheId;
+  }, "Candidate added. It is pending until you approve it.");
+});
+
+document.getElementById("suggest-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const form = event.target;
+  const data = Object.fromEntries(new FormData(form));
+  const body = { url: data.url };
+  if (data.criterion) body.criteria = [data.criterion];
+  run(form.querySelector("button"), "Reading the page… please wait", () => api("POST", "/niches/" + data.niche_id + "/candidates/suggest", body),
+    (r) => r.candidates.length + " draft candidate(s) added for review" +
+      (r.skipped.length ? "; " + r.skipped.length + " skipped (" + r.skipped.map((x) => x.criterion + ": " + x.reason).join(" | ") + ")" : "") + ".");
+});
+
+document.getElementById("gen-ideas").addEventListener("click", (event) => {
+  const nicheId = document.getElementById("idea-niche").value;
+  if (!nicheId) { notify("Add a niche first.", true); return; }
+  run(event.target, "Generating… this can take a minute", () => api("POST", "/niches/" + nicheId + "/content/ideas/generate", { count: 3 }),
+    (r) => r.ideas.length + " idea draft(s) added. Review them below.");
+});
+
+document.getElementById("perf-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const form = event.target;
+  const d = Object.fromEntries(new FormData(form));
+  const body = { views: num(d.views), likes: num(d.likes), comments: num(d.comments),
+                 watch_time_minutes: num(d.watch_time_minutes), followers_gained: num(d.followers_gained) };
+  if (d.captured_on) body.captured_on = d.captured_on;
+  run(form.querySelector("button"), "Saving…", async () => { await api("POST", "/posts/" + d.post_id + "/performance", body); form.reset(); }, "Results saved.");
+});
+
+document.getElementById("money-kind").addEventListener("change", fillMoneySources);
+document.getElementById("money-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const form = event.target;
+  const d = Object.fromEntries(new FormData(form));
+  const body = { kind: d.kind, source: d.source, amount: d.amount, currency: d.currency, note: d.note };
+  if (d.post_id) body.post_id = Number(d.post_id);
+  run(form.querySelector("button"), "Saving…", async () => { await api("POST", "/niches/" + d.niche_id + "/money", body); form.reset(); document.querySelector("#money-form [name=currency]").value = d.currency; },
+    "Entry added.");
+});
+
+document.querySelectorAll("#tabs button").forEach((button) => button.addEventListener("click", () => showTab(button.dataset.tab)));
+let startTab = "research";
+try { startTab = localStorage.getItem("creatoros-tab") || "research"; } catch (_) { /* ignore */ }
+showTab(["research", "content", "publish"].includes(startTab) ? startTab : "research");
+
+load().catch((error) => notify("Could not load data: " + error.message, true));
+</script>
+</body>
+</html>

@@ -4,10 +4,13 @@ A local-first niche research and scoring backend for a YouTube + Instagram creat
 
 ## What this MVP does
 
-- Create and list niche candidates.
+- Create and list niches.
 - Store evidence against seven scoring criteria.
 - Calculate a transparent weighted score (1–10).
-- Rank niches and return a research report.
+- Rank niches and return a research report. Niches containing demo evidence are always listed after niches with real evidence.
+- Hold proposed evidence as **candidates** that a human must approve or reject. Only approved candidates become evidence.
+- Draft research plans with a local Ollama model (`qwen2.5:1.5b`). AI output is labelled `ai_draft` and is never saved or scored.
+- Check that a quoted excerpt actually appears on a web page (`/research/verify-quote`).
 - Expose an interactive API at `/docs`.
 - Use SQLite locally; no paid API or cloud service is required.
 
@@ -19,6 +22,7 @@ A local-first niche research and scoring backend for a YouTube + Instagram creat
 - Python 3.12 recommended
 - VS Code
 - PowerShell terminal
+- [Ollama](https://ollama.com) with the `qwen2.5:1.5b` model pulled (only needed for the AI endpoints; everything else works without it)
 
 ## 1. Create and activate a virtual environment
 
@@ -66,9 +70,11 @@ Open:
 
 Keep the terminal running while using the API.
 
+**Dashboard.** With the server running, open `http://127.0.0.1:8000/dashboard` to add niches, propose evidence, verify excerpts, approve or reject candidates and see rankings, without typing JSON. Everything it does uses the same API described below.
+
 ## 5. Add a niche
 
-In `/docs`, open `POST /niches`, click **Try it out**, and submit:
+In `/docs`, open `POST /api/v1/niches`, click **Try it out**, and submit:
 
 ```json
 {
@@ -84,7 +90,7 @@ Copy the returned niche `id`.
 
 ## 6. Add evidence and scores
 
-Open `POST /niches/{niche_id}/evidence`. Add one evidence record per criterion. Allowed criteria and weights:
+You need evidence for all seven criteria before a niche can be scored. **Real evidence** must be proposed as a candidate and approved by a reviewer (section 8, or the dashboard at `/dashboard`). `POST /api/v1/niches/{niche_id}/evidence` is for **demonstration data only** and returns 403 unless `is_demo` is `true`. Allowed criteria and weights:
 
 | Criterion | Weight |
 |---|---:|
@@ -96,7 +102,7 @@ Open `POST /niches/{niche_id}/evidence`. Add one evidence record per criterion. 
 | long_term_demand | 15 |
 | creator_capability | 10 |
 
-Example:
+Example of a demonstration record (this is not research):
 
 ```json
 {
@@ -109,23 +115,45 @@ Example:
 }
 ```
 
-Replace the example observation and URL with real research. Do not score a criterion without recording the reason and source. `is_demo` should be `false` for actual research.
+Demonstration data is always flagged, and niches that contain it rank below niches with real evidence. Do not score a criterion without recording the reason and source; for real research use the candidate workflow.
 
-Then call `POST /niches/{niche_id}/evaluate`.
+Then call `POST /api/v1/niches/{niche_id}/evaluate`.
 
 ## 7. View rankings
 
-Call `GET /reports/rankings`. Niches with incomplete criteria are returned as `incomplete` and are not ranked as if they had a complete score.
+Call `GET /api/v1/reports/rankings`. Niches with incomplete criteria are returned as `incomplete` and are not ranked as if they had a complete score. Niches that contain demo evidence appear after all niches with real evidence, whatever their score.
+
+## 8. Review proposed evidence (human approval)
+
+1. `POST /api/v1/niches/{niche_id}/candidates` — propose a claim with a source URL and a source excerpt. It starts as `pending` and does not affect any score.
+2. Recommended: `POST /api/v1/candidates/{id}/verify` fetches the candidate's source page and records whether its excerpt appears in the page text. The result (`quote_check_status`: `not_checked`, `found`, `not_found` or `fetch_failed`) is saved on the candidate and shown in the candidate list. It never approves or rejects anything, and it does **not block** approval: a failed check is a warning, and it is written into the approved evidence text so it stays visible later. This is a text match only; a human must still judge whether the excerpt supports the claim. Pages that build their text with JavaScript will not match. (`POST /api/v1/research/verify-quote` does the same check for any URL and excerpt without saving anything.)
+3. `GET /api/v1/candidates` — list candidates (default `pending`; use `?status=approved` or `?status=rejected`).
+4. `POST /api/v1/candidates/{id}/approve` creates real evidence and resets the niche's score. `POST /api/v1/candidates/{id}/reject` requires a reviewer note. Decisions are final (a second decision returns 409).
+
+## 9. Local AI (optional)
+
+Start Ollama, then call `POST /api/v1/research/plan` with a niche name and a criterion to get a research **plan** (questions and source types, not facts). `POST /api/v1/ai/generate` sends a free prompt. Both return drafts that are not evidence and are not saved.
 
 ## API endpoints
 
+All endpoints below use the `/api/v1` prefix, except `/health`.
+
 - `GET /health` — health check
+- `GET /criteria` — the seven criteria and their weights
 - `POST /niches` — create a niche
 - `GET /niches` — list niches
 - `GET /niches/{niche_id}` — niche details and evidence
-- `POST /niches/{niche_id}/evidence` — add evidence
+- `POST /niches/{niche_id}/evidence` — add **demonstration** evidence directly (403 unless `is_demo` is true)
 - `POST /niches/{niche_id}/evaluate` — calculate score
 - `GET /reports/rankings` — ranked report
+- `POST /niches/{niche_id}/candidates` — propose evidence for review
+- `GET /candidates` — list candidates by status
+- `POST /candidates/{candidate_id}/approve` — approve and create evidence
+- `POST /candidates/{candidate_id}/verify` — check the candidate's excerpt against its source page and record the result
+- `POST /candidates/{candidate_id}/reject` — reject with a note
+- `POST /research/plan` — AI-drafted research plan (needs Ollama)
+- `POST /research/verify-quote` — check an excerpt exists on a page
+- `POST /ai/generate` — free prompt to the local model (needs Ollama)
 
 ## Scoring model
 
@@ -142,21 +170,51 @@ The score is a decision-support signal, not a prediction of income. Revenue depe
 ```text
 creator-os-mvp/
 ├── app/
-│   ├── api/routes.py
+│   ├── api/
+│   │   ├── routes.py            niches, evidence, evaluation, rankings
+│   │   ├── candidate_routes.py  propose / approve / reject evidence
+│   │   ├── research_routes.py   AI research plans
+│   │   ├── verify_routes.py     quote verification
+│   │   ├── dashboard_routes.py  serves the dashboard page
+│   │   └── ai_routes.py         free prompt to the local model
+│   ├── agents/research_planner.py   criteria descriptions and plan prompt
+│   ├── ai/ollama_client.py          talks to the local Ollama server
+│   ├── research/
+│   │   ├── fetcher.py               downloads one page safely
+│   │   └── verify.py                HTML to text, quote matching
 │   ├── models.py
-│   ├── schemas.py
-│   ├── scoring.py
+│   ├── schemas.py                   the single definition of the 7 criteria
+│   ├── scoring.py                   weights and the score calculation
 │   ├── database.py
+│   ├── static/dashboard.html        the local dashboard (plain HTML, no build step)
+│   ├── migrations.py                adds new model columns to an older database
 │   └── main.py
-├── prompts/
+├── prompts/                     role descriptions for future agents (not yet loaded by any code)
 │   ├── niche_research_agent.md
 │   └── evidence_review_agent.md
 ├── tests/
-│   └── test_scoring.py
+│   ├── conftest.py              shared in-memory test database
+│   ├── test_scoring.py
+│   ├── test_candidates.py
+│   ├── test_rankings.py
+│   ├── test_verify.py
+│   ├── test_consistency.py      fails if the criteria lists drift apart
+│   ├── test_quote_check.py      candidate quote checks (web page is mocked)
+│   ├── test_migrations.py       old database upgrade
+│   └── test_dashboard.py        dashboard page and criteria endpoint
+├── pytest.ini
+├── test_ollama.py               manual check that Ollama is reachable
 ├── .env.example
 ├── requirements.txt
+├── ROADMAP.md                   done / next / needs your decision, plus rules for any session
 └── README.md
 ```
+
+Run the tests with `pytest -v` (configured by `pytest.ini`).
+
+**Database upgrades.** When the app starts, `app/migrations.py` adds any model columns missing from an older `creatoros.db`, keeping all existing rows. It only adds columns; renames, type changes and deletions still need a real migration tool such as Alembic.
+
+If you add or rename a scoring criterion, change `WEIGHTS` in `scoring.py`, `Criterion` in `schemas.py` and `CRITERIA_GUIDE` in `agents/research_planner.py`. `tests/test_consistency.py` fails if they disagree.
 
 ## Troubleshooting
 
@@ -170,11 +228,17 @@ creator-os-mvp/
 
 **Database schema changed:** Stop the server, back up `creatoros.db`, then delete it only if you are happy to lose local test data. For a serious deployment, add Alembic migrations rather than deleting the database.
 
+## New in this version (open `/dashboard`)
+
+Three tabs: **Research**, **Content**, **Publishing & results**.
+
+- Suggest evidence from a page (AI): needs Ollama running. Drafts only; a human approves.
+- Ideas and scripts: generated only from approved, real evidence. Approve or reject each.
+- Publishing queue: approve a post, copy its package, post it yourself, record the link. CreatorOS never uploads for you.
+- Record results (views, likes, etc.) and money (revenue and costs), then read the Outcomes table.
+
+Endpoints are listed in the interactive docs at `/docs`. See `ROADMAP.md` for what is done and what needs your decisions.
+
 ## Next milestones
 
-1. Add a research-source collector with source/date capture.
-2. Add a local Ollama model for research synthesis (not as a source of facts).
-3. Add LangGraph orchestration and human approval checkpoints.
-4. Add a React dashboard.
-5. Add content planning, production and publishing modules.
-6. Add YouTube/Instagram integrations after checking current API permissions and platform rules.
+See [ROADMAP.md](ROADMAP.md) for what is done, what is next, and what needs a decision from you.
