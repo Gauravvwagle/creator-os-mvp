@@ -11,6 +11,7 @@ from app.api.routes import router
 from app.api.candidate_routes import router as candidate_router
 from app.api.suggest_routes import router as suggest_router
 from app.api.content_routes import router as content_router
+from app.api.tracking_routes import router as tracking_router
 
 
 @pytest.fixture()
@@ -36,6 +37,7 @@ def client():
     app.include_router(candidate_router, prefix="/api/v1")
     app.include_router(suggest_router, prefix="/api/v1")
     app.include_router(content_router, prefix="/api/v1")
+    app.include_router(tracking_router, prefix="/api/v1")
     app.dependency_overrides[get_db] = override_get_db
 
     with TestClient(app) as c:
