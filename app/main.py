@@ -4,8 +4,11 @@ from .api.routes import router
 from .api.ai_routes import router as ai_router
 from .api.research_routes import router as research_router
 from .api.candidate_routes import router as candidate_router
-from .api.verify_routes import router as verify_router 
+from .api.verify_routes import router as verify_router
+from .migrations import add_missing_columns
+
 Base.metadata.create_all(bind=engine)
+add_missing_columns(engine)  # upgrades an older creatoros.db without losing data
 
 app = FastAPI(
     title=settings.app_name,

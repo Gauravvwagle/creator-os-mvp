@@ -7,9 +7,19 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..models import Niche, Evidence, EvidenceCandidate
+from ..research.fetcher import FetchError, fetch_page_text
+from ..research.verify import quote_in_text
 from ..schemas import CandidateCreate, CandidateOut, CandidateApprove, CandidateReject
 
 router = APIRouter()
+
+# How each quote-check result is described inside the approved evidence text.
+_QUOTE_CHECK_TEXT = {
+    "not_checked": "Quote check: the excerpt was NOT machine-checked against the page.",
+    "found": "Quote check: the excerpt was found in the page text (text match only; it does not prove the claim).",
+    "not_found": "Quote check: WARNING - the excerpt was NOT found in the page text. Verify it manually.",
+    "fetch_failed": "Quote check: WARNING - the page could not be fetched, so the excerpt is unverified.",
+}
 
 
 def _get_pending(candidate_id: int, db: Session) -> EvidenceCandidate:
@@ -35,6 +45,10 @@ def _build_observation(c: EvidenceCandidate) -> str:
     if c.source_published:
         parts.append(f"Published/updated: {c.source_published}")
     parts.append(f"Captured: {c.created_at.date().isoformat()}")
+    check = _QUOTE_CHECK_TEXT.get(c.quote_check_status, _QUOTE_CHECK_TEXT["not_checked"])
+    if c.quote_checked_at is not None:
+        check += f" Checked: {c.quote_checked_at.date().isoformat()}."
+    parts.append(check)
     parts.append("Human-reviewed and approved.")
     return "\n\n".join(parts)
 
@@ -67,6 +81,27 @@ def list_candidates(
         stmt = stmt.where(EvidenceCandidate.niche_id == niche_id)
     stmt = stmt.order_by(EvidenceCandidate.created_at.desc())
     return list(db.scalars(stmt).all())
+
+
+@router.post("/candidates/{candidate_id}/verify", response_model=CandidateOut)
+async def verify_candidate(candidate_id: int, db: Session = Depends(get_db)):
+    """Fetch the candidate's source page and record whether its excerpt appears in it.
+
+    This only RECORDS a result. It never approves or rejects, and approval is not blocked
+    by a failed check: the reviewer sees the result and decides.
+    """
+    candidate = _get_pending(candidate_id, db)
+    try:
+        page = await fetch_page_text(candidate.source_url)
+        found = quote_in_text(candidate.source_excerpt, page["text"])
+        status = "found" if found else "not_found"
+    except FetchError:
+        status = "fetch_failed"
+    candidate.quote_check_status = status
+    candidate.quote_checked_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(candidate)
+    return candidate
 
 
 @router.post("/candidates/{candidate_id}/approve", response_model=CandidateOut)

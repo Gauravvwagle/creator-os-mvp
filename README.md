@@ -124,7 +124,7 @@ Call `GET /api/v1/reports/rankings`. Niches with incomplete criteria are returne
 ## 8. Review proposed evidence (human approval)
 
 1. `POST /api/v1/niches/{niche_id}/candidates` — propose a claim with a source URL and a source excerpt. It starts as `pending` and does not affect any score.
-2. Optional: `POST /api/v1/research/verify-quote` with the URL and excerpt to check the excerpt really appears on the page. This is a text match only; a human must still judge whether it supports the claim. Pages that build their text with JavaScript will not match.
+2. Recommended: `POST /api/v1/candidates/{id}/verify` fetches the candidate's source page and records whether its excerpt appears in the page text. The result (`quote_check_status`: `not_checked`, `found`, `not_found` or `fetch_failed`) is saved on the candidate and shown in the candidate list. It never approves or rejects anything, and it does **not block** approval: a failed check is a warning, and it is written into the approved evidence text so it stays visible later. This is a text match only; a human must still judge whether the excerpt supports the claim. Pages that build their text with JavaScript will not match. (`POST /api/v1/research/verify-quote` does the same check for any URL and excerpt without saving anything.)
 3. `GET /api/v1/candidates` — list candidates (default `pending`; use `?status=approved` or `?status=rejected`).
 4. `POST /api/v1/candidates/{id}/approve` creates real evidence and resets the niche's score. `POST /api/v1/candidates/{id}/reject` requires a reviewer note. Decisions are final (a second decision returns 409).
 
@@ -146,6 +146,7 @@ All endpoints below use the `/api/v1` prefix, except `/health`.
 - `POST /niches/{niche_id}/candidates` — propose evidence for review
 - `GET /candidates` — list candidates by status
 - `POST /candidates/{candidate_id}/approve` — approve and create evidence
+- `POST /candidates/{candidate_id}/verify` — check the candidate's excerpt against its source page and record the result
 - `POST /candidates/{candidate_id}/reject` — reject with a note
 - `POST /research/plan` — AI-drafted research plan (needs Ollama)
 - `POST /research/verify-quote` — check an excerpt exists on a page
@@ -181,6 +182,7 @@ creator-os-mvp/
 │   ├── schemas.py                   the single definition of the 7 criteria
 │   ├── scoring.py                   weights and the score calculation
 │   ├── database.py
+│   ├── migrations.py                adds new model columns to an older database
 │   └── main.py
 ├── prompts/                     role descriptions for future agents (not yet loaded by any code)
 │   ├── niche_research_agent.md
@@ -191,14 +193,19 @@ creator-os-mvp/
 │   ├── test_candidates.py
 │   ├── test_rankings.py
 │   ├── test_verify.py
-│   └── test_consistency.py      fails if the criteria lists drift apart
+│   ├── test_consistency.py      fails if the criteria lists drift apart
+│   ├── test_quote_check.py      candidate quote checks (web page is mocked)
+│   └── test_migrations.py       old database upgrade
+├── pytest.ini
 ├── test_ollama.py               manual check that Ollama is reachable
 ├── .env.example
 ├── requirements.txt
 └── README.md
 ```
 
-Run the tests with `pytest -v`.
+Run the tests with `pytest -v` (configured by `pytest.ini`).
+
+**Database upgrades.** When the app starts, `app/migrations.py` adds any model columns missing from an older `creatoros.db`, keeping all existing rows. It only adds columns; renames, type changes and deletions still need a real migration tool such as Alembic.
 
 If you add or rename a scoring criterion, change `WEIGHTS` in `scoring.py`, `Criterion` in `schemas.py` and `CRITERIA_GUIDE` in `agents/research_planner.py`. `tests/test_consistency.py` fails if they disagree.
 
@@ -216,9 +223,9 @@ If you add or rename a scoring criterion, change `WEIGHTS` in `scoring.py`, `Cri
 
 ## Next milestones
 
-Done: candidate review workflow, local Ollama research plans, single-page quote verification.
+Done: candidate review workflow, local Ollama research plans, single-page quote verification, quote-check results recorded on candidates.
 
-1. Record the quote-verification result on each candidate, and decide whether a failed check blocks approval.
+1. Decide whether a failed quote check should block approval (today it only warns).
 2. Restrict direct evidence entry so real evidence must pass through the candidate gate.
 3. Decide how `confidence` should affect the score (it is stored but not used today).
 4. Add an `ai_suggested` candidate flow, with automatic quote checks before human review.

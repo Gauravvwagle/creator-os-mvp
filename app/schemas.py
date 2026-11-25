@@ -99,6 +99,8 @@ class CandidateOut(BaseModel):
     reviewer_note: str | None
     reviewed_at: datetime | None
     evidence_id: int | None
+    quote_check_status: str
+    quote_checked_at: datetime | None
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
 
