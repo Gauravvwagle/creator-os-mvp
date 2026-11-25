@@ -70,6 +70,8 @@ Open:
 
 Keep the terminal running while using the API.
 
+**Dashboard.** With the server running, open `http://127.0.0.1:8000/dashboard` to add niches, propose evidence, verify excerpts, approve or reject candidates and see rankings, without typing JSON. Everything it does uses the same API described below.
+
 ## 5. Add a niche
 
 In `/docs`, open `POST /api/v1/niches`, click **Try it out**, and submit:
@@ -88,7 +90,7 @@ Copy the returned niche `id`.
 
 ## 6. Add evidence and scores
 
-Open `POST /api/v1/niches/{niche_id}/evidence`. Add one evidence record per criterion. (For real research, prefer the candidate workflow described below, which requires a source and a human decision.) Allowed criteria and weights:
+You need evidence for all seven criteria before a niche can be scored. **Real evidence** must be proposed as a candidate and approved by a reviewer (section 8, or the dashboard at `/dashboard`). `POST /api/v1/niches/{niche_id}/evidence` is for **demonstration data only** and returns 403 unless `is_demo` is `true`. Allowed criteria and weights:
 
 | Criterion | Weight |
 |---|---:|
@@ -100,7 +102,7 @@ Open `POST /api/v1/niches/{niche_id}/evidence`. Add one evidence record per crit
 | long_term_demand | 15 |
 | creator_capability | 10 |
 
-Example:
+Example of a demonstration record (this is not research):
 
 ```json
 {
@@ -113,7 +115,7 @@ Example:
 }
 ```
 
-Replace the example observation and URL with real research. Do not score a criterion without recording the reason and source. `is_demo` should be `false` for actual research.
+Demonstration data is always flagged, and niches that contain it rank below niches with real evidence. Do not score a criterion without recording the reason and source; for real research use the candidate workflow.
 
 Then call `POST /api/v1/niches/{niche_id}/evaluate`.
 
@@ -137,10 +139,11 @@ Start Ollama, then call `POST /api/v1/research/plan` with a niche name and a cri
 All endpoints below use the `/api/v1` prefix, except `/health`.
 
 - `GET /health` — health check
+- `GET /criteria` — the seven criteria and their weights
 - `POST /niches` — create a niche
 - `GET /niches` — list niches
 - `GET /niches/{niche_id}` — niche details and evidence
-- `POST /niches/{niche_id}/evidence` — add evidence directly
+- `POST /niches/{niche_id}/evidence` — add **demonstration** evidence directly (403 unless `is_demo` is true)
 - `POST /niches/{niche_id}/evaluate` — calculate score
 - `GET /reports/rankings` — ranked report
 - `POST /niches/{niche_id}/candidates` — propose evidence for review
@@ -172,6 +175,7 @@ creator-os-mvp/
 │   │   ├── candidate_routes.py  propose / approve / reject evidence
 │   │   ├── research_routes.py   AI research plans
 │   │   ├── verify_routes.py     quote verification
+│   │   ├── dashboard_routes.py  serves the dashboard page
 │   │   └── ai_routes.py         free prompt to the local model
 │   ├── agents/research_planner.py   criteria descriptions and plan prompt
 │   ├── ai/ollama_client.py          talks to the local Ollama server
@@ -182,6 +186,7 @@ creator-os-mvp/
 │   ├── schemas.py                   the single definition of the 7 criteria
 │   ├── scoring.py                   weights and the score calculation
 │   ├── database.py
+│   ├── static/dashboard.html        the local dashboard (plain HTML, no build step)
 │   ├── migrations.py                adds new model columns to an older database
 │   └── main.py
 ├── prompts/                     role descriptions for future agents (not yet loaded by any code)
@@ -195,11 +200,13 @@ creator-os-mvp/
 │   ├── test_verify.py
 │   ├── test_consistency.py      fails if the criteria lists drift apart
 │   ├── test_quote_check.py      candidate quote checks (web page is mocked)
-│   └── test_migrations.py       old database upgrade
+│   ├── test_migrations.py       old database upgrade
+│   └── test_dashboard.py        dashboard page and criteria endpoint
 ├── pytest.ini
 ├── test_ollama.py               manual check that Ollama is reachable
 ├── .env.example
 ├── requirements.txt
+├── ROADMAP.md                   done / next / needs your decision, plus rules for any session
 └── README.md
 ```
 
@@ -223,12 +230,4 @@ If you add or rename a scoring criterion, change `WEIGHTS` in `scoring.py`, `Cri
 
 ## Next milestones
 
-Done: candidate review workflow, local Ollama research plans, single-page quote verification, quote-check results recorded on candidates.
-
-1. Decide whether a failed quote check should block approval (today it only warns).
-2. Restrict direct evidence entry so real evidence must pass through the candidate gate.
-3. Decide how `confidence` should affect the score (it is stored but not used today).
-4. Add an `ai_suggested` candidate flow, with automatic quote checks before human review.
-5. Add a dashboard.
-6. Add content planning, production and publishing modules.
-7. Add YouTube/Instagram integrations after checking current API permissions and platform rules.
+See [ROADMAP.md](ROADMAP.md) for what is done, what is next, and what needs a decision from you.

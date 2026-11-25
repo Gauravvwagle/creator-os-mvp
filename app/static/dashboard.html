@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CreatorOS Dashboard</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1c2430; --muted: #5b6676; --line: #dde2ea;
+    --accent: #2457d6; --good: #1d7a46; --warn: #a15c00; --bad: #b3261e;
+    --good-bg: #e4f4ea; --warn-bg: #fdf0d9; --bad-bg: #fbe5e3; --neutral-bg: #e9edf3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12161c; --card: #1a2029; --text: #e6e9ee; --muted: #9aa5b5; --line: #2c3544;
+      --accent: #7ea2ff; --good: #62c58b; --warn: #e3a64a; --bad: #f08c85;
+      --good-bg: #173325; --warn-bg: #3a2c12; --bad-bg: #3d1d1b; --neutral-bg: #252d3a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { padding: 20px 16px 8px; max-width: 1100px; margin: 0 auto; }
+  h1 { margin: 0; font-size: 22px; }
+  .sub { color: var(--muted); margin: 4px 0 0; font-size: 13px; }
+  main { max-width: 1100px; margin: 0 auto; padding: 8px 16px 48px; display: grid; gap: 16px;
+         grid-template-columns: minmax(0, 1fr); }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px;
+            min-width: 0; overflow-x: auto; }
+  h2 { margin: 0 0 12px; font-size: 17px; }
+  h3 { margin: 14px 0 6px; font-size: 14px; color: var(--muted); font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .muted { color: var(--muted); }
+  .badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; background: var(--neutral-bg); }
+  .badge.good { background: var(--good-bg); color: var(--good); }
+  .badge.warn { background: var(--warn-bg); color: var(--warn); }
+  .badge.bad { background: var(--bad-bg); color: var(--bad); }
+  button { font: inherit; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--line);
+           background: var(--card); color: var(--text); cursor: pointer; }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button:disabled { opacity: .55; cursor: wait; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  form { display: grid; gap: 10px; }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 10px; }
+  label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+  input, select, textarea { font: inherit; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px;
+                            background: var(--bg); color: var(--text); width: 100%; }
+  textarea { min-height: 70px; resize: vertical; }
+  .card { border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: grid; gap: 8px; }
+  .card + .card { margin-top: 10px; }
+  blockquote { margin: 0; padding: 6px 10px; border-left: 3px solid var(--line); color: var(--muted); font-size: 14px; }
+  #status { position: sticky; top: 0; z-index: 5; margin: 0 auto; max-width: 1100px; padding: 0 16px; }
+  #status div { margin-top: 8px; padding: 8px 12px; border-radius: 8px; font-size: 14px; }
+  #status .ok { background: var(--good-bg); color: var(--good); border: 1px solid var(--good); }
+  #status .err { background: var(--bad-bg); color: var(--bad); border: 1px solid var(--bad); }
+  a { color: var(--accent); }
+  .empty { color: var(--muted); padding: 8px 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>CreatorOS</h1>
+  <p class="sub">Local-first niche research. Scores are decision support, not revenue forecasts, and only reviewed evidence counts.</p>
+</header>
+<div id="status" role="status" aria-live="polite"></div>
+
+<main>
+  <section>
+    <h2>Rankings</h2>
+    <div id="rankings"></div>
+  </section>
+
+  <section>
+    <h2>Candidates waiting for review</h2>
+    <p class="sub">Verify checks that the excerpt appears on the page. It is a text match only: you still decide whether it supports the claim. Approve and reject are final.</p>
+    <div id="candidates"></div>
+  </section>
+
+  <section>
+    <h2>Niches</h2>
+    <div id="niches"></div>
+    <h3>Add a niche</h3>
+    <form id="niche-form">
+      <div class="grid2">
+        <label>Name <input name="name" required minlength="2" maxlength="160"></label>
+        <label>Target audience <input name="target_audience"></label>
+      </div>
+      <label>Description <input name="description"></label>
+      <div class="row"><button class="primary" type="submit">Add niche</button></div>
+    </form>
+  </section>
+
+  <section>
+    <h2>Propose evidence</h2>
+    <p class="sub">Every claim needs a source URL and an excerpt copied from that page. It stays pending until you approve it.</p>
+    <form id="candidate-form">
+      <div class="grid2">
+        <label>Niche <select name="niche_id" id="cand-niche" required></select></label>
+        <label>Criterion <select name="criterion" id="cand-criterion" required></select></label>
+        <label>Score (1-10) <input name="proposed_score" type="number" min="1" max="10" required></label>
+        <label>Confidence
+          <select name="confidence"><option>low</option><option>medium</option><option>high</option></select>
+        </label>
+      </div>
+      <label>Claim (what the source shows) <textarea name="claim" required minlength="10" maxlength="2000"></textarea></label>
+      <div class="grid2">
+        <label>Source URL <input name="source_url" type="url" required placeholder="https://"></label>
+        <label>Source title <input name="source_title" maxlength="300"></label>
+      </div>
+      <label>Excerpt copied from the page <textarea name="source_excerpt" required minlength="10" maxlength="3000"></textarea></label>
+      <div class="row"><button class="primary" type="submit">Add candidate</button></div>
+    </form>
+  </section>
+</main>
+
+<script>
+"use strict";
+
+const state = { criteria: [], niches: [], rankings: { ranked: [], incomplete: [] }, candidates: [] };
+
+const CHECK_LABELS = {
+  not_checked: ["Not checked", ""],
+  found: ["Excerpt found on page", "good"],
+  not_found: ["Excerpt NOT found", "bad"],
+  fetch_failed: ["Page could not be fetched", "warn"],
+};
+
+/* Build DOM nodes from plain text only, so typed content cannot inject markup. */
+function h(tag, props, ...kids) {
+  const el = document.createElement(tag);
+  for (const [key, value] of Object.entries(props || {})) {
+    if (key === "class") el.className = value;
+    else if (key.startsWith("on")) el.addEventListener(key.slice(2), value);
+    else if (value !== null && value !== undefined && value !== false) el.setAttribute(key, value);
+  }
+  for (const kid of kids.flat()) {
+    if (kid === null || kid === undefined || kid === false) continue;
+    el.append(kid);
+  }
+  return el;
+}
+
+function describeError(data) {
+  if (!data) return "";
+  if (typeof data.detail === "string") return data.detail;
+  if (Array.isArray(data.detail)) {
+    return data.detail.map((d) => (d.loc || []).slice(1).join(".") + ": " + d.msg).join("; ");
+  }
+  return "";
+}
+
+async function api(method, path, body) {
+  const response = await fetch("/api/v1" + path, {
+    method,
+    headers: body ? { "Content-Type": "application/json" } : {},
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  let data = null;
+  try { data = await response.json(); } catch (_) { /* no body */ }
+  if (!response.ok) throw new Error(describeError(data) || "Request failed (HTTP " + response.status + ")");
+  return data;
+}
+
+let statusTimer = null;
+function notify(message, isError) {
+  const box = document.getElementById("status");
+  box.replaceChildren(h("div", { class: isError ? "err" : "ok" }, message));
+  clearTimeout(statusTimer);
+  statusTimer = setTimeout(() => box.replaceChildren(), isError ? 12000 : 5000);
+}
+
+async function run(button, label, action, successMessage) {
+  const original = button.textContent;
+  button.disabled = true;
+  button.textContent = label;
+  try {
+    const result = await action();
+    await load();
+    if (successMessage) notify(typeof successMessage === "function" ? successMessage(result) : successMessage, false);
+  } catch (error) {
+    notify(error.message, true);
+  } finally {
+    button.disabled = false;
+    button.textContent = original;
+  }
+}
+
+function niceName(id) {
+  const niche = state.niches.find((n) => n.id === id);
+  return niche ? niche.name : "Niche #" + id;
+}
+
+function renderRankings() {
+  const { ranked, incomplete } = state.rankings;
+  const root = document.getElementById("rankings");
+  const parts = [];
+  if (!ranked.length) {
+    parts.push(h("p", { class: "empty" }, "No niche has evidence for all seven criteria yet."));
+  } else {
+    parts.push(h("table", {},
+      h("thead", {}, h("tr", {}, h("th", {}, "#"), h("th", {}, "Niche"), h("th", { class: "num" }, "Score"), h("th", {}, "Reading"))),
+      h("tbody", {}, ranked.map((row, i) => h("tr", {},
+        h("td", {}, String(i + 1)),
+        h("td", {}, row.niche_name, " ", row.contains_demo_evidence ? h("span", { class: "badge warn" }, "demo data") : null),
+        h("td", { class: "num" }, row.weighted_score.toFixed(2)),
+        h("td", { class: "muted" }, row.interpretation))))));
+  }
+  if (incomplete.length) {
+    parts.push(h("h3", {}, "Not ranked yet (missing evidence)"));
+    parts.push(h("table", {}, h("tbody", {}, incomplete.map((row) => h("tr", {},
+      h("td", {}, row.niche_name),
+      h("td", { class: "muted" }, row.criteria_missing.length + " of 7 criteria missing"))))));
+  }
+  root.replaceChildren(...parts);
+}
+
+function renderNiches() {
+  const root = document.getElementById("niches");
+  if (!state.niches.length) {
+    root.replaceChildren(h("p", { class: "empty" }, "No niches yet. Add one below."));
+    return;
+  }
+  root.replaceChildren(h("table", {},
+    h("thead", {}, h("tr", {}, h("th", {}, "Niche"), h("th", {}, "Status"), h("th", { class: "num" }, "Saved score"), h("th", {}, ""))),
+    h("tbody", {}, state.niches.map((niche) => {
+      const button = h("button", {}, "Evaluate");
+      button.addEventListener("click", () => run(button, "Evaluating…",
+        () => api("POST", "/niches/" + niche.id + "/evaluate"),
+        (r) => r.status === "evaluated"
+          ? niche.name + ": " + r.weighted_score.toFixed(2) + ". " + r.interpretation
+          : niche.name + ": " + r.criteria_missing.length + " criteria still need evidence."));
+      return h("tr", {},
+        h("td", {}, niche.name, h("div", { class: "muted" }, niche.target_audience || "")),
+        h("td", {}, h("span", { class: "badge" }, niche.score_status)),
+        h("td", { class: "num" }, niche.latest_score === null ? "-" : niche.latest_score.toFixed(2)),
+        h("td", {}, button));
+    }))));
+}
+
+function safeHttpUrl(value) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.href : null;
+  } catch (_) { return null; }
+}
+
+function renderCandidates() {
+  const root = document.getElementById("candidates");
+  if (!state.candidates.length) {
+    root.replaceChildren(h("p", { class: "empty" }, "Nothing is waiting for review."));
+    return;
+  }
+  root.replaceChildren(...state.candidates.map((c) => {
+    const [checkText, checkClass] = CHECK_LABELS[c.quote_check_status] || CHECK_LABELS.not_checked;
+    const href = safeHttpUrl(c.source_url);
+
+    const verify = h("button", {}, "Verify excerpt");
+    verify.addEventListener("click", () => run(verify, "Checking page…",
+      () => api("POST", "/candidates/" + c.id + "/verify"),
+      (r) => CHECK_LABELS[r.quote_check_status][0] + "."));
+
+    const approve = h("button", { class: "primary" }, "Approve");
+    approve.addEventListener("click", () => {
+      const warning = c.quote_check_status === "found" ? "" :
+        "\n\nNote: the excerpt has not been confirmed on the page (" + checkText.toLowerCase() + "). This will be recorded in the evidence.";
+      if (!confirm("Approve this evidence? Decisions are final." + warning)) return;
+      run(approve, "Approving…", () => api("POST", "/candidates/" + c.id + "/approve", {}), "Approved. The niche score was reset; evaluate it again.");
+    });
+
+    const reject = h("button", {}, "Reject");
+    reject.addEventListener("click", () => {
+      const note = prompt("Why are you rejecting this? (required, at least 3 characters)");
+      if (note === null) return;
+      run(reject, "Rejecting…", () => api("POST", "/candidates/" + c.id + "/reject", { reviewer_note: note }), "Rejected.");
+    });
+
+    return h("div", { class: "card" },
+      h("div", { class: "row" },
+        h("strong", {}, niceName(c.niche_id)),
+        h("span", { class: "badge" }, c.criterion),
+        h("span", { class: "badge" }, "score " + c.proposed_score),
+        h("span", { class: "badge" }, c.confidence + " confidence"),
+        h("span", { class: "badge " + checkClass }, checkText)),
+      h("div", {}, c.claim),
+      h("blockquote", {}, c.source_excerpt),
+      h("div", { class: "muted" }, "Source: ",
+        href ? h("a", { href, target: "_blank", rel: "noopener noreferrer" }, c.source_title || href) : (c.source_title || c.source_url)),
+      h("div", { class: "row" }, verify, approve, reject));
+  }));
+}
+
+function fillSelects() {
+  const niche = document.getElementById("cand-niche");
+  const keep = niche.value;
+  niche.replaceChildren(...state.niches.map((n) => h("option", { value: String(n.id) }, n.name)));
+  if (keep) niche.value = keep;
+
+  const criterion = document.getElementById("cand-criterion");
+  if (!criterion.options.length) {
+    criterion.replaceChildren(...state.criteria.map((c) => h("option", { value: c.name }, c.name + " (weight " + c.weight + ")")));
+  }
+}
+
+async function load() {
+  const [criteria, niches, rankings, candidates] = await Promise.all([
+    api("GET", "/criteria"), api("GET", "/niches"), api("GET", "/reports/rankings"), api("GET", "/candidates"),
+  ]);
+  Object.assign(state, { criteria, niches, rankings, candidates });
+  renderRankings(); renderNiches(); renderCandidates(); fillSelects();
+}
+
+document.getElementById("niche-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const form = event.target;
+  const data = Object.fromEntries(new FormData(form));
+  run(form.querySelector("button"), "Adding…", async () => {
+    await api("POST", "/niches", { name: data.name, description: data.description, target_audience: data.target_audience });
+    form.reset();
+  }, "Niche added.");
+});
+
+document.getElementById("candidate-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const form = event.target;
+  const data = Object.fromEntries(new FormData(form));
+  const nicheId = data.niche_id;
+  run(form.querySelector("button"), "Adding…", async () => {
+    await api("POST", "/niches/" + nicheId + "/candidates", {
+      criterion: data.criterion,
+      proposed_score: Number(data.proposed_score),
+      confidence: data.confidence,
+      claim: data.claim,
+      source_url: data.source_url,
+      source_title: data.source_title,
+      source_excerpt: data.source_excerpt,
+    });
+    form.reset();
+    document.getElementById("cand-niche").value = nicheId;
+  }, "Candidate added. It is pending until you approve it.");
+});
+
+load().catch((error) => notify("Could not load data: " + error.message, true));
+</script>
+</body>
+</html>

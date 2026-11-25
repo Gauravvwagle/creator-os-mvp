@@ -4,9 +4,15 @@ from sqlalchemy import select
 from ..database import get_db
 from ..models import Niche, Evidence
 from ..schemas import NicheCreate, NicheOut, EvidenceCreate, EvidenceOut, EvaluationOut
-from ..scoring import evaluate_evidence
+from ..scoring import WEIGHTS, evaluate_evidence
 
 router = APIRouter()
+
+
+@router.get("/criteria")
+def list_criteria():
+    """The seven scoring criteria and their weights (single source: scoring.WEIGHTS)."""
+    return [{"name": name, "weight": weight} for name, weight in WEIGHTS.items()]
 
 
 @router.post("/niches", response_model=NicheOut, status_code=201)
@@ -44,6 +50,16 @@ def add_evidence(niche_id: int, payload: EvidenceCreate, db: Session = Depends(g
     niche = db.get(Niche, niche_id)
     if not niche:
         raise HTTPException(status_code=404, detail="Niche not found.")
+    if not payload.is_demo:
+        # Real evidence needs a source, an excerpt and a human decision.
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Direct entry is for demonstration data only (set is_demo to true). "
+                f"Real evidence must be proposed with POST /api/v1/niches/{niche_id}/candidates "
+                "and approved by a reviewer."
+            ),
+        )
     item = Evidence(niche_id=niche_id, **payload.model_dump())
     db.add(item)
     # Any new evidence invalidates the previous evaluation until re-evaluated.
