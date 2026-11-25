@@ -111,3 +111,55 @@ class CandidateApprove(BaseModel):
 
 class CandidateReject(BaseModel):
     reviewer_note: str = Field(min_length=3, max_length=2000)
+
+# ---------- content planning ----------
+
+class ReviewNote(BaseModel):
+    reviewer_note: str = Field(min_length=3, max_length=2000)
+
+
+class IdeaGenerate(BaseModel):
+    count: int = Field(default=3, ge=1, le=5)
+
+
+class IdeaCreate(BaseModel):
+    title: str = Field(min_length=5, max_length=200)
+    hook: str = Field(default="", max_length=500)
+    outline: list[str] = Field(default_factory=list, max_length=8)
+
+
+class IdeaOut(BaseModel):
+    id: int
+    niche_id: int
+    title: str
+    hook: str
+    outline: list[str]
+    origin: str
+    status: str
+    reviewer_note: str | None
+    reviewed_at: datetime | None
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class IdeasResponse(BaseModel):
+    model: str
+    ideas: list[IdeaOut]
+    note: str
+
+
+class ScriptCreate(BaseModel):
+    body: str = Field(min_length=20, max_length=20000)
+
+
+class ScriptOut(BaseModel):
+    id: int
+    idea_id: int
+    body: str
+    origin: str
+    status: str
+    unverified_numbers: list[str]
+    reviewer_note: str | None
+    reviewed_at: datetime | None
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)

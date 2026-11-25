@@ -71,3 +71,36 @@ class EvidenceCandidate(Base):
     )
     quote_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+class ContentIdea(Base):
+    """A proposed video idea. AI-generated ideas start as drafts and need human approval."""
+
+    __tablename__ = "content_ideas"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    niche_id: Mapped[int] = mapped_column(ForeignKey("niches.id"), index=True)
+    title: Mapped[str] = mapped_column(String(200))
+    hook: Mapped[str] = mapped_column(Text, default="")
+    outline: Mapped[list] = mapped_column(JSON, default=list)
+    origin: Mapped[str] = mapped_column(String(30), default="ai_draft")  # ai_draft | human_entered
+    status: Mapped[str] = mapped_column(String(20), default="draft", index=True)  # draft | approved | rejected
+    reviewer_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class ContentScript(Base):
+    """A script for an approved idea. AI scripts start as drafts and need human approval."""
+
+    __tablename__ = "content_scripts"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    idea_id: Mapped[int] = mapped_column(ForeignKey("content_ideas.id"), index=True)
+    body: Mapped[str] = mapped_column(Text)
+    origin: Mapped[str] = mapped_column(String(30), default="ai_draft")
+    status: Mapped[str] = mapped_column(String(20), default="draft", index=True)
+    # Numbers in the script that appear nowhere in the niche's approved evidence.
+    unverified_numbers: Mapped[list] = mapped_column(JSON, default=list)
+    reviewer_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
